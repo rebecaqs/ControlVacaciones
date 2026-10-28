@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vacaciones</title>
+<title>Ausencias</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -82,7 +82,7 @@
 
   #result { margin-top: 28px; }
 
-  .chips { display: flex; gap: 8px; margin-bottom: 16px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
   .chip {
     border: 1px solid var(--line); background: transparent; color: var(--muted);
     font: inherit; font-size: 13px; font-weight: 500;
@@ -141,6 +141,11 @@
   .who { flex: 1; min-width: 0; }
   .who b { display: block; font-weight: 500; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .who span { font-size: 13px; color: var(--muted); }
+  .tag {
+    font-style: normal; font-size: 11px; font-weight: 600; letter-spacing: .04em;
+    color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent);
+    border-radius: 999px; padding: 1px 9px; margin-right: 8px;
+  }
   .office {
     flex: none; font-size: 11px; font-weight: 600; letter-spacing: .06em;
     color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px;
@@ -156,7 +161,7 @@
 <main>
   <header>
     <span class="eyebrow">Equipo</span>
-    <h1>¿Quién está de vacaciones?</h1>
+    <h1>¿Quién está ausente?</h1>
     <p class="sub">Carga el Excel de seguimiento y consulta cualquier día. Todo se procesa en tu navegador.</p>
   </header>
 
@@ -168,6 +173,7 @@
   <div class="msg" id="msg" hidden></div>
 
   <section id="result" hidden>
+    <div class="chips" id="typeChips" hidden></div>
     <div class="chips" id="chips" hidden></div>
     <div class="week" id="week"></div>
     <div class="panel">
@@ -183,13 +189,14 @@
     </div>
   </section>
 
-  <footer>Lee la hoja con el calendario anual: una fila por persona y una columna por día (V = vacaciones).</footer>
+  <footer>Lee la hoja con el calendario anual: una fila por persona y una columna por día (V = vacaciones, B = baja, P = permiso).</footer>
 </main>
 
 <script>
 const $ = id => document.getElementById(id);
 let records = [];            // { name, office, start: Date, end: Date }
 let officeFilter = 'all';
+let typeFilter = 'all';
 let current = addDays(startOfDay(new Date()), 1); // por defecto: mañana
 
 /* ---------- fechas ---------- */
@@ -225,10 +232,12 @@ const norm = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ
 const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
                 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const monthIdx = v => (typeof v === 'string' ? MONTHS.indexOf(norm(v)) : -1);
+const TYPES = { V: 'Vacaciones', B: 'Baja', P: 'Permiso' };   // códigos de ausencia
+const TYPE_COLORS = { V: '#e8643c', B: '#3d8b7a', P: '#6b7fd7' };
 
 /* Formato A: calendario anual (una fila por persona, una columna por día).
    Fila de meses (ENERO, FEBRERO…), fila con el número de día, columna "Persona".
-   Cada celda: V = vacaciones, F = festivo, B = baja, P = permiso, número = horas. */
+   Cada celda: V = vacaciones, B = baja, P = permiso, F = festivo, número = horas. */
 function parseCalendar(rows, sheetName) {
   // 1) fila de meses: la que tiene más "arranques de mes"
   let mRow = -1, starts = [];
@@ -283,12 +292,12 @@ function parseCalendar(rows, sheetName) {
     let office = nameCol > 0 ? String(row[nameCol - 1] ?? '').trim() : '';
     if (office.length > 4) office = '';
 
-    const vac = [], festivos = new Set();
+    const days = [], festivos = new Set();
     for (const c of cols) {
       const v = row[c];
       if (typeof v !== 'string') continue;
       const code = v.trim().toUpperCase();
-      if (code === 'V') vac.push(dateOfCol.get(c));
+      if (TYPES[code]) days.push({ d: dateOfCol.get(c), type: code });
       else if (code === 'F') festivos.add(dateOfCol.get(c).getTime());
     }
     const bridge = (a, b) => {
@@ -299,9 +308,9 @@ function parseCalendar(rows, sheetName) {
       return true;
     };
     let cur = null;
-    for (const d of vac) {
-      if (cur && bridge(cur.end, d)) cur.end = d;
-      else { cur = { name, office, start: d, end: d }; out.push(cur); }
+    for (const { d, type } of days) {
+      if (cur && cur.type === type && bridge(cur.end, d)) cur.end = d;
+      else { cur = { name, office, type, start: d, end: d }; out.push(cur); }
     }
   }
   return out;
@@ -335,7 +344,7 @@ function parseList(rows) {
     const s = toDate(row[cols.start >= 0 ? cols.start : cols.date]);
     if (!s) continue;
     const e = cols.end >= 0 ? (toDate(row[cols.end]) || s) : s;
-    out.push({ name, office: '', start: s, end: e < s ? s : e });
+    out.push({ name, office: '', type: 'V', start: s, end: e < s ? s : e });
   }
   return out;
 }
@@ -361,8 +370,8 @@ async function loadFile(file) {
   try {
     const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
     records = parseWorkbook(wb);
-    if (!records.length) throw new Error('No he encontrado vacaciones en el Excel. Comprueba que la hoja tiene el calendario con las celdas marcadas con V.');
-    officeFilter = 'all';
+    if (!records.length) throw new Error('No he encontrado ausencias en el Excel. Comprueba que la hoja tiene el calendario con las celdas marcadas con V, B o P.');
+    officeFilter = 'all'; typeFilter = 'all';
     $('dropText').innerHTML = `<strong>✓ ${file.name}</strong>Pulsa para cambiar de archivo`;
     msg.hidden = true;
     $('result').hidden = false;
@@ -386,22 +395,31 @@ function initials(name) {
   const parts = name.split(/\s+/).filter(Boolean);
   return ((parts[0]?.[0] || '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
 }
-const visible = () => officeFilter === 'all' ? records : records.filter(r => r.office === officeFilter);
+const visible = () => records.filter(r =>
+  (officeFilter === 'all' || r.office === officeFilter) &&
+  (typeFilter === 'all' || r.type === typeFilter));
 const peopleOn = d => visible().filter(r => r.start <= d && d <= r.end);
 
-function renderChips() {
-  const box = $('chips');
-  const offices = [...new Set(records.map(r => r.office).filter(Boolean))].sort();
+function fillChips(box, options, selected, labelOf, onPick) {
   box.innerHTML = '';
-  if (offices.length < 2) { box.hidden = true; return; }
+  if (options.length < 2) { box.hidden = true; return; }
   box.hidden = false;
-  for (const o of ['all', ...offices]) {
+  for (const o of ['all', ...options]) {
     const b = document.createElement('button');
-    b.className = 'chip' + (o === officeFilter ? ' on' : '');
-    b.textContent = o === 'all' ? 'Todas' : o;
-    b.onclick = () => { officeFilter = o; renderChips(); render(); };
+    b.className = 'chip' + (o === selected ? ' on' : '');
+    b.textContent = o === 'all' ? labelOf.all : labelOf[o] ?? o;
+    b.onclick = () => onPick(o);
     box.append(b);
   }
+}
+function renderChips() {
+  const types = Object.keys(TYPES).filter(t => records.some(r => r.type === t));
+  fillChips($('typeChips'), types, typeFilter,
+    { all: 'Todas', ...TYPES },
+    t => { typeFilter = t; renderChips(); render(); });
+  const offices = [...new Set(records.map(r => r.office).filter(Boolean))].sort();
+  fillChips($('chips'), offices, officeFilter, { all: 'Todas las oficinas' },
+    o => { officeFilter = o; renderChips(); render(); });
 }
 
 function renderWeek() {
@@ -429,13 +447,16 @@ function render() {
   $('picker').value = iso(current);
   renderWeek();
 
-  const people = peopleOn(current).sort((a, b) => a.name.localeCompare(b.name, 'es', { numeric: true }));
+  const order = Object.keys(TYPES);
+  const people = peopleOn(current).sort((a, b) =>
+    order.indexOf(a.type) - order.indexOf(b.type) ||
+    a.name.localeCompare(b.name, 'es', { numeric: true }));
   $('badge').innerHTML = people.length ? `${people.length}<small>${people.length === 1 ? 'persona' : 'personas'}</small>` : '0';
 
   const list = $('list');
   list.innerHTML = '';
   if (!people.length) {
-    list.innerHTML = '<div class="empty"><div class="big">Equipo al completo</div>Nadie de vacaciones este día.</div>';
+    list.innerHTML = '<div class="empty"><div class="big">Equipo al completo</div>Nadie ausente este día.</div>';
     return;
   }
   for (const p of people) {
@@ -445,7 +466,10 @@ function render() {
     const who = document.createElement('div'); who.className = 'who';
     const b = document.createElement('b'); b.textContent = p.name;
     const sp = document.createElement('span');
-    sp.textContent = sameDay(p.start, p.end) ? fmtShort(p.start) : `${fmtShort(p.start)} – ${fmtShort(p.end)}`;
+    const tag = document.createElement('i'); tag.className = 'tag';
+    tag.style.setProperty('--c', TYPE_COLORS[p.type] || 'var(--muted)');
+    tag.textContent = TYPES[p.type] || '';
+    sp.append(tag, sameDay(p.start, p.end) ? fmtShort(p.start) : `${fmtShort(p.start)} – ${fmtShort(p.end)}`);
     who.append(b, sp);
     li.append(av, who);
     if (p.office) {
