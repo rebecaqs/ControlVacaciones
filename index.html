@@ -48,9 +48,7 @@
     font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
     color: var(--accent);
   }
-  .eyebrow::before {
-    content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
-  }
+  .eyebrow::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
   h1 {
     font-family: Fraunces, Georgia, serif;
     font-weight: 600;
@@ -68,7 +66,7 @@
     border-radius: 16px;
     padding: 16px 18px;
     cursor: pointer;
-    transition: border-color .15s, transform .15s;
+    transition: border-color .15s;
     font-size: 14px; color: var(--muted);
   }
   .drop:hover, .drop.over { border-color: var(--accent); }
@@ -83,6 +81,15 @@
   .err { color: #d6452d; }
 
   #result { margin-top: 28px; }
+
+  .chips { display: flex; gap: 8px; margin-bottom: 16px; }
+  .chip {
+    border: 1px solid var(--line); background: transparent; color: var(--muted);
+    font: inherit; font-size: 13px; font-weight: 500;
+    border-radius: 999px; padding: 6px 14px; cursor: pointer; transition: all .15s;
+  }
+  .chip:hover { border-color: var(--fg); color: var(--fg); }
+  .chip.on { background: var(--fg); border-color: var(--fg); color: var(--bg); }
 
   /* tira de la semana */
   .week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 18px; }
@@ -134,6 +141,10 @@
   .who { flex: 1; min-width: 0; }
   .who b { display: block; font-weight: 500; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .who span { font-size: 13px; color: var(--muted); }
+  .office {
+    flex: none; font-size: 11px; font-weight: 600; letter-spacing: .06em;
+    color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px;
+  }
   .empty { padding: 30px 0 26px; text-align: center; color: var(--muted); border-top: 1px solid var(--line); margin-top: 14px; }
   .empty .big { font-family: Fraunces, Georgia, serif; font-size: 20px; color: var(--fg); margin-bottom: 4px; }
 
@@ -146,7 +157,7 @@
   <header>
     <span class="eyebrow">Equipo</span>
     <h1>¿Quién está de vacaciones?</h1>
-    <p class="sub">Carga el Excel y consulta cualquier día. Todo se procesa en tu navegador.</p>
+    <p class="sub">Carga el Excel de seguimiento y consulta cualquier día. Todo se procesa en tu navegador.</p>
   </header>
 
   <label class="drop" id="drop">
@@ -157,6 +168,7 @@
   <div class="msg" id="msg" hidden></div>
 
   <section id="result" hidden>
+    <div class="chips" id="chips" hidden></div>
     <div class="week" id="week"></div>
     <div class="panel">
       <div class="panel-top">
@@ -171,12 +183,13 @@
     </div>
   </section>
 
-  <footer>Columnas esperadas: Nombre + Inicio/Fin (o una sola Fecha por fila).</footer>
+  <footer>Lee la hoja con el calendario anual: una fila por persona y una columna por día (V = vacaciones).</footer>
 </main>
 
 <script>
 const $ = id => document.getElementById(id);
-let records = [];
+let records = [];            // { name, office, start: Date, end: Date }
+let officeFilter = 'all';
 let current = addDays(startOfDay(new Date()), 1); // por defecto: mañana
 
 /* ---------- fechas ---------- */
@@ -207,8 +220,94 @@ function toDate(v) {
   return null;
 }
 
-/* ---------- lectura del Excel ---------- */
-const norm = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+/* PARSER START */
+const norm = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
+                'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const monthIdx = v => (typeof v === 'string' ? MONTHS.indexOf(norm(v)) : -1);
+
+/* Formato A: calendario anual (una fila por persona, una columna por día).
+   Fila de meses (ENERO, FEBRERO…), fila con el número de día, columna "Persona".
+   Cada celda: V = vacaciones, F = festivo, B = baja, P = permiso, número = horas. */
+function parseCalendar(rows, sheetName) {
+  // 1) fila de meses: la que tiene más "arranques de mes"
+  let mRow = -1, starts = [];
+  for (let r = 0; r < Math.min(rows.length, 12); r++) {
+    const s = [];
+    rows[r].forEach((v, c) => {
+      const m = monthIdx(v);
+      if (m >= 0 && !(c > 0 && monthIdx(rows[r][c - 1]) === m)) s.push({ col: c, m });
+    });
+    if (s.length > starts.length) { starts = s; mRow = r; }
+  }
+  if (starts.length < 6) return null;
+
+  // 2) fila con los números de día
+  let dRow = -1, best = 0;
+  for (let r = mRow; r < Math.min(rows.length, mRow + 6); r++) {
+    const n = rows[r].filter(v => typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= 31).length;
+    if (n > best) { best = n; dRow = r; }
+  }
+  if (dRow < 0 || best < 28) return null;
+
+  // 3) columna con los nombres: cabecera "Persona"
+  let nameCol = -1;
+  for (let r = 0; r <= dRow && nameCol < 0; r++) nameCol = rows[r].findIndex(v => norm(v) === 'persona');
+  if (nameCol < 0) return null;
+
+  // 4) columna -> fecha (el año sube cuando los meses vuelven a enero)
+  const baseYear = +((String(sheetName).match(/20\d\d/) || [new Date().getFullYear()])[0]);
+  let year = baseYear, prev = -1;
+  const blocks = starts.map((s, i) => {
+    if (s.m <= prev) year++;
+    prev = s.m;
+    return { ...s, year, end: i + 1 < starts.length ? starts[i + 1].col : rows[dRow].length };
+  });
+  const dateOfCol = new Map();
+  for (const b of blocks) {
+    for (let c = b.col; c < b.end; c++) {
+      const d = rows[dRow][c];
+      if (typeof d !== 'number' || d < 1 || d > 31) continue;
+      const dt = new Date(b.year, b.m, d);
+      if (dt.getMonth() === b.m) dateOfCol.set(c, dt);
+    }
+  }
+  const cols = [...dateOfCol.keys()].sort((a, b) => a - b);
+
+  // 5) personas y días de vacaciones; los fines de semana y festivos no cortan un periodo
+  const out = [];
+  for (let r = dRow + 1; r < rows.length; r++) {
+    const row = rows[r];
+    const name = String(row[nameCol] ?? '').trim();
+    if (!name || /limpio/i.test(name)) continue;
+    let office = nameCol > 0 ? String(row[nameCol - 1] ?? '').trim() : '';
+    if (office.length > 4) office = '';
+
+    const vac = [], festivos = new Set();
+    for (const c of cols) {
+      const v = row[c];
+      if (typeof v !== 'string') continue;
+      const code = v.trim().toUpperCase();
+      if (code === 'V') vac.push(dateOfCol.get(c));
+      else if (code === 'F') festivos.add(dateOfCol.get(c).getTime());
+    }
+    const bridge = (a, b) => {
+      for (let t = addDays(a, 1); t < b; t = addDays(t, 1)) {
+        const wd = t.getDay();
+        if (wd !== 0 && wd !== 6 && !festivos.has(t.getTime())) return false;
+      }
+      return true;
+    };
+    let cur = null;
+    for (const d of vac) {
+      if (cur && bridge(cur.end, d)) cur.end = d;
+      else { cur = { name, office, start: d, end: d }; out.push(cur); }
+    }
+  }
+  return out;
+}
+
+/* Formato B (alternativo): lista con Nombre + Inicio/Fin, o una Fecha por fila. */
 const KEYS = {
   name:  ['nombre', 'persona', 'empleado', 'empleada', 'name', 'trabajador', 'equipo', 'miembro'],
   start: ['inicio', 'desde', 'start', 'from', 'fecha inicio', 'fecha de inicio', 'primer dia'],
@@ -219,40 +318,55 @@ function findCol(headers, keys) {
   for (const k of keys) { const i = headers.findIndex(h => h === k); if (i >= 0) return i; }
   return headers.findIndex(h => keys.some(k => h.includes(k)));
 }
-function parseWorkbook(wb) {
+function parseList(rows) {
   const out = [];
-  for (const sheetName of wb.SheetNames) {
-    const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, raw: true, defval: '' });
-    let hi = -1, cols = null;
-    for (let r = 0; r < Math.min(rows.length, 15); r++) {
-      const h = rows[r].map(norm);
-      const name = findCol(h, KEYS.name), start = findCol(h, KEYS.start),
-            end = findCol(h, KEYS.end), date = findCol(h, KEYS.date);
-      if (name >= 0 && (start >= 0 || date >= 0)) { hi = r; cols = { name, start, end, date }; break; }
-    }
-    if (hi < 0) continue;
-    for (let r = hi + 1; r < rows.length; r++) {
-      const row = rows[r];
-      const name = String(row[cols.name] ?? '').trim();
-      if (!name) continue;
-      const s = toDate(row[cols.start >= 0 ? cols.start : cols.date]);
-      if (!s) continue;
-      const e = cols.end >= 0 ? (toDate(row[cols.end]) || s) : s;
-      out.push({ name, start: s, end: e < s ? s : e });
-    }
+  let hi = -1, cols = null;
+  for (let r = 0; r < Math.min(rows.length, 15); r++) {
+    const h = rows[r].map(norm);
+    const name = findCol(h, KEYS.name), start = findCol(h, KEYS.start),
+          end = findCol(h, KEYS.end), date = findCol(h, KEYS.date);
+    if (name >= 0 && (start >= 0 || date >= 0)) { hi = r; cols = { name, start, end, date }; break; }
+  }
+  if (hi < 0) return out;
+  for (let r = hi + 1; r < rows.length; r++) {
+    const row = rows[r];
+    const name = String(row[cols.name] ?? '').trim();
+    if (!name) continue;
+    const s = toDate(row[cols.start >= 0 ? cols.start : cols.date]);
+    if (!s) continue;
+    const e = cols.end >= 0 ? (toDate(row[cols.end]) || s) : s;
+    out.push({ name, office: '', start: s, end: e < s ? s : e });
   }
   return out;
 }
+
+function parseWorkbook(wb) {
+  const sheets = wb.SheetNames.map(n => ({
+    name: n,
+    rows: XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: '' })
+  }));
+  let out = [], foundCalendar = false;
+  for (const s of sheets) {
+    const cal = parseCalendar(s.rows, s.name);
+    if (cal) { foundCalendar = true; out = out.concat(cal); }
+  }
+  if (!foundCalendar) for (const s of sheets) out = out.concat(parseList(s.rows));
+  return out;
+}
+/* PARSER END */
+
 async function loadFile(file) {
   const msg = $('msg');
   msg.hidden = false; msg.className = 'msg'; msg.textContent = 'Leyendo…';
   try {
     const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
     records = parseWorkbook(wb);
-    if (!records.length) throw new Error('No encuentro columnas de nombre y fechas. Revisa las cabeceras del Excel.');
+    if (!records.length) throw new Error('No he encontrado vacaciones en el Excel. Comprueba que la hoja tiene el calendario con las celdas marcadas con V.');
+    officeFilter = 'all';
     $('dropText').innerHTML = `<strong>✓ ${file.name}</strong>Pulsa para cambiar de archivo`;
     msg.hidden = true;
     $('result').hidden = false;
+    renderChips();
     render();
   } catch (err) {
     msg.className = 'msg err';
@@ -272,7 +386,23 @@ function initials(name) {
   const parts = name.split(/\s+/).filter(Boolean);
   return ((parts[0]?.[0] || '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
 }
-const peopleOn = d => records.filter(r => r.start <= d && d <= r.end);
+const visible = () => officeFilter === 'all' ? records : records.filter(r => r.office === officeFilter);
+const peopleOn = d => visible().filter(r => r.start <= d && d <= r.end);
+
+function renderChips() {
+  const box = $('chips');
+  const offices = [...new Set(records.map(r => r.office).filter(Boolean))].sort();
+  box.innerHTML = '';
+  if (offices.length < 2) { box.hidden = true; return; }
+  box.hidden = false;
+  for (const o of ['all', ...offices]) {
+    const b = document.createElement('button');
+    b.className = 'chip' + (o === officeFilter ? ' on' : '');
+    b.textContent = o === 'all' ? 'Todas' : o;
+    b.onclick = () => { officeFilter = o; renderChips(); render(); };
+    box.append(b);
+  }
+}
 
 function renderWeek() {
   const wk = $('week');
@@ -299,7 +429,7 @@ function render() {
   $('picker').value = iso(current);
   renderWeek();
 
-  const people = peopleOn(current).sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  const people = peopleOn(current).sort((a, b) => a.name.localeCompare(b.name, 'es', { numeric: true }));
   $('badge').innerHTML = people.length ? `${people.length}<small>${people.length === 1 ? 'persona' : 'personas'}</small>` : '0';
 
   const list = $('list');
@@ -318,6 +448,10 @@ function render() {
     sp.textContent = sameDay(p.start, p.end) ? fmtShort(p.start) : `${fmtShort(p.start)} – ${fmtShort(p.end)}`;
     who.append(b, sp);
     li.append(av, who);
+    if (p.office) {
+      const o = document.createElement('div'); o.className = 'office'; o.textContent = p.office;
+      li.append(o);
+    }
     list.append(li);
   }
 }
