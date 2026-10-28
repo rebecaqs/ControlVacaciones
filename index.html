@@ -141,6 +141,8 @@
   .who { flex: 1; min-width: 0; }
   .who b { display: block; font-weight: 500; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .who span { font-size: 13px; color: var(--muted); }
+  .panel.next { margin-top: 18px; }
+  .hint { font-size: 13px; color: var(--muted); margin-top: 4px; }
   .tag {
     font-style: normal; font-size: 11px; font-weight: 600; letter-spacing: .04em;
     color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent);
@@ -186,6 +188,18 @@
       </div>
       <div class="picker-row"><input type="date" id="picker" aria-label="Elegir fecha"></div>
       <ul id="list"></ul>
+    </div>
+
+    <div class="panel next">
+      <div class="panel-top">
+        <div>
+          <div class="rel" id="nextRel"></div>
+          <div class="full" id="nextFull"></div>
+          <div class="hint">Quién empieza una ausencia ese día</div>
+        </div>
+        <div class="badge" id="nextBadge"></div>
+      </div>
+      <ul id="nextList"></ul>
     </div>
   </section>
 
@@ -349,6 +363,25 @@ function parseList(rows) {
   return out;
 }
 
+/* Días laborables: de lunes a viernes (sábado y domingo no cuentan). */
+const isWeekend = d => d.getDay() === 0 || d.getDay() === 6;
+function nextWorkday(from) {
+  let d = addDays(startOfDay(from), 1);
+  while (isWeekend(d)) d = addDays(d, 1);
+  return d;
+}
+function prevWorkday(from) {
+  let d = addDays(startOfDay(from), -1);
+  while (isWeekend(d)) d = addDays(d, -1);
+  return d;
+}
+/* Ausencias que empiezan en `day`: su primer día cae después del laborable anterior
+   (así, una baja que arranca un sábado cuenta como lunes) y siguen vigentes ese día. */
+function startingOn(list, day) {
+  const prev = prevWorkday(day);
+  return list.filter(r => r.start > prev && r.start <= day && r.end >= day);
+}
+
 function parseWorkbook(wb) {
   const sheets = wb.SheetNames.map(n => ({
     name: n,
@@ -447,19 +480,30 @@ function render() {
   $('picker').value = iso(current);
   renderWeek();
 
+  fillList($('list'), $('badge'), people(peopleOn(current)),
+    '<div class="empty"><div class="big">Equipo al completo</div>Nadie ausente este día.</div>');
+
+  // Apartado "empiezan una ausencia el próximo día laborable" (siempre respecto a hoy)
+  const nextDay = nextWorkday(today);
+  const nd = Math.round((nextDay - today) / 86400000);
+  $('nextRel').textContent = nd === 1 ? 'Próximo día laborable · mañana' : 'Próximo día laborable';
+  $('nextFull').textContent = nextDay.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  fillList($('nextList'), $('nextBadge'), people(startingOn(visible(), nextDay)),
+    '<div class="empty"><div class="big">Sin novedades</div>Nadie empieza una ausencia ese día.</div>');
+}
+
+function people(list) {
   const order = Object.keys(TYPES);
-  const people = peopleOn(current).sort((a, b) =>
+  return [...list].sort((a, b) =>
     order.indexOf(a.type) - order.indexOf(b.type) ||
     a.name.localeCompare(b.name, 'es', { numeric: true }));
-  $('badge').innerHTML = people.length ? `${people.length}<small>${people.length === 1 ? 'persona' : 'personas'}</small>` : '0';
+}
 
-  const list = $('list');
+function fillList(list, badge, items, emptyHtml) {
+  badge.innerHTML = items.length ? `${items.length}<small>${items.length === 1 ? 'persona' : 'personas'}</small>` : '0';
   list.innerHTML = '';
-  if (!people.length) {
-    list.innerHTML = '<div class="empty"><div class="big">Equipo al completo</div>Nadie ausente este día.</div>';
-    return;
-  }
-  for (const p of people) {
+  if (!items.length) { list.innerHTML = emptyHtml; return; }
+  for (const p of items) {
     const li = document.createElement('li');
     const av = document.createElement('div'); av.className = 'avatar';
     av.style.background = colorFor(p.name); av.textContent = initials(p.name);
