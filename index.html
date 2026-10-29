@@ -579,7 +579,7 @@ function setView(v) {
   $('view-ausencias').hidden = v !== 'ausencias';
   $('view-manana').hidden = v !== 'manana';
   document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('on', b.dataset.view === v));
-  $('title').textContent = v === 'manana' ? '¿Quién empieza una ausencia?' : '¿Quién está ausente?';
+  $('title').textContent = 'HIBERUS(Vueling) - SEGUIMIENTO IMPUTACIONES';
   try { history.replaceState(null, '', v === 'manana' ? '#manana' : location.pathname + location.search); } catch (e) {}
 }
 document.querySelectorAll('.nav-item').forEach(b => b.onclick = () => setView(b.dataset.view));
