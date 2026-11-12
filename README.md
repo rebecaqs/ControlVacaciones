@@ -132,8 +132,8 @@ Además del script, el proyecto incluye una página web (`index.html`, un
      laborable anterior, saltando fines de semana y festivos).
 
    En el menú lateral puedes cambiar la fecha, elegir qué listas ver,
-   filtrar por tipo (**Vacaciones** = códigos `V`/`VS`, **Permiso** = código
-   `P`), por ubicación y por departamento.
+   filtrar por tipo (**Vacaciones** = códigos `V`/`VS`, **Permiso** = `P`,
+   **Baja** = `B`, **Summerfest** = `S`), por ubicación y por departamento.
 
 El Excel se lee en el navegador y no se sube a ningún sitio. GitHub Pages no
 ejecuta Python, así que el `.py` solo sirve para usarlo desde la terminal
