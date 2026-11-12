@@ -6,111 +6,131 @@
 <title>Vacaciones de mañana</title>
 <style>
   :root {
-    --bg: #f6f7f9; --card: #ffffff; --text: #1c2430; --muted: #5d6b7c;
-    --line: #dfe3e8; --accent: #2b6cb0; --accent-soft: #e6f0fa;
-    --ok: #2f855a; --err: #b83232; --err-soft: #fbeaea;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #12161c; --card: #1b222b; --text: #e8edf3; --muted: #9aa8b8;
-      --line: #2d3744; --accent: #6aa9e9; --accent-soft: #1f3248;
-      --ok: #68d391; --err: #f08a8a; --err-soft: #3a2020;
-    }
+    --azul: #1d5bbf; --azul-osc: #0f3f8f; --azul-claro: #eaf1fd; --azul-borde: #cfdff7;
+    --texto: #14284b; --muted: #5a6f94; --err: #b42318; --err-bg: #fdecea;
   }
   * { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  }
-  main { max-width: 640px; margin: 0 auto; padding: 24px 16px 48px; }
-  h1 { font-size: 1.5rem; margin: 0 0 4px; }
-  .sub { color: var(--muted); margin: 0 0 20px; }
-  .card {
-    background: var(--card); border: 1px solid var(--line);
-    border-radius: 12px; padding: 16px; margin-bottom: 16px;
-  }
-  .drop {
-    display: block; text-align: center; cursor: pointer;
-    border: 2px dashed var(--line); border-radius: 12px;
-    padding: 28px 16px; color: var(--muted);
-  }
-  .drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
-  .drop strong { color: var(--text); }
+  body { margin: 0; background: #f4f8fe; color: var(--texto);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .layout { display: grid; grid-template-columns: 290px 1fr; min-height: 100vh; }
+
+  /* Menú lateral: azul con texto blanco */
+  .side { background: var(--azul); color: #fff; padding: 20px 16px;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+  .side h1 { font-size: 1.25rem; margin: 0 0 16px; color: #fff; }
+  .side h3 { font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; color: #cfe0ff; margin: 20px 0 8px; }
+  .drop { display: block; text-align: center; cursor: pointer; font-size: .9rem; color: #dbe8ff;
+    border: 2px dashed rgba(255,255,255,.55); border-radius: 10px; padding: 16px 10px; }
+  .drop:hover, .drop.over { border-color: #fff; background: rgba(255,255,255,.14); color: #fff; }
+  .drop strong { color: #fff; }
   .drop input { display: none; }
-  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
-  label.f { color: var(--muted); font-size: .9rem; }
-  input[type=date] {
-    font: inherit; color: var(--text); background: var(--bg);
-    border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px;
-  }
-  button {
-    font: inherit; color: var(--accent); background: transparent;
-    border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; cursor: pointer;
-  }
-  button:hover { border-color: var(--accent); }
-  h2 { font-size: 1.1rem; margin: 0 0 12px; text-transform: capitalize; }
+  .drop span { display: block; word-break: break-all; margin-top: 2px; }
+  .check { display: flex; gap: 8px; align-items: center; padding: 3px 0; cursor: pointer; font-size: .95rem; }
+  .check input { width: 16px; height: 16px; accent-color: #fff; }
+  .opts { max-height: 190px; overflow-y: auto; }
+  input[type=date] { font: inherit; color: var(--texto); background: #fff; width: 100%;
+    border: 1px solid #fff; border-radius: 8px; padding: 6px 10px; }
+  button { font: inherit; font-weight: 600; color: var(--azul); background: #fff; margin-top: 8px;
+    border: 1px solid #fff; border-radius: 8px; padding: 5px 12px; cursor: pointer; }
+  button:hover { background: var(--azul-claro); }
+
+  /* Contenido: blanco con acentos azules */
+  .main { padding: 24px 20px 48px; max-width: 760px; width: 100%; }
+  .fecha { font-size: 1.35rem; font-weight: 600; color: var(--azul-osc); margin: 0 0 16px; }
+  .fecha::first-letter { text-transform: uppercase; }
+  .card { background: #fff; border: 1px solid var(--azul-borde); border-radius: 12px;
+    padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 2px rgba(15,63,143,.06); }
+  h2 { font-size: 1.05rem; margin: 0 0 8px; color: var(--azul-osc); }
+  h2 .n { color: var(--muted); font-weight: 400; }
   ul { list-style: none; margin: 0; padding: 0; }
-  li {
-    display: flex; justify-content: space-between; gap: 12px; align-items: center;
-    padding: 10px 0; border-top: 1px solid var(--line);
-  }
+  li { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap;
+    padding: 10px 0; border-top: 1px solid var(--azul-claro); }
   li:first-child { border-top: 0; }
-  .chip {
-    font-size: .8rem; color: var(--accent); background: var(--accent-soft);
-    border-radius: 999px; padding: 2px 10px; white-space: nowrap;
-  }
-  .nadie { color: var(--ok); margin: 0; }
-  .meta { color: var(--muted); font-size: .85rem; margin: 12px 0 0; }
-  .error { background: var(--err-soft); color: var(--err); border-radius: 8px; padding: 12px; }
-  .privacy { color: var(--muted); font-size: .85rem; }
+  .tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tag { font-size: .78rem; border-radius: 999px; padding: 2px 10px; white-space: nowrap;
+    color: #3c5a8a; background: var(--azul-claro); border: 1.5px solid transparent; }
+  .tag.vacaciones { background: var(--azul); color: #fff; font-weight: 600; }          /* relleno azul */
+  .tag.permiso { background: #fff; color: var(--azul); border-color: var(--azul); font-weight: 600; } /* contorno azul */
+  .vacio, .aviso, .meta, .privacy { color: var(--muted); }
+  .vacio { margin: 4px 0 0; }
+  .meta, .privacy { font-size: .85rem; }
+  .error { background: var(--err-bg); color: var(--err); border-radius: 8px; padding: 12px; margin-bottom: 16px; }
   [hidden] { display: none !important; }
+  @media (max-width: 780px) {
+    .layout { grid-template-columns: 1fr; }
+    .side { position: static; height: auto; }
+    .main { padding: 16px; }
+  }
 </style>
 </head>
 <body>
-<main>
-  <h1>Vacaciones de mañana</h1>
-  <p class="sub">Elige el Excel de vacaciones y te digo quién está de vacaciones al día siguiente.</p>
+<div class="layout">
+  <aside class="side">
+    <h1>Vacaciones</h1>
 
-  <div class="card">
     <label class="drop" id="drop">
       <input type="file" id="archivo" accept=".xlsx,.xlsm">
-      <strong>Elige el Excel</strong> o arrástralo aquí<br>
-      <span id="nombreArchivo">Aún no has elegido ningún archivo</span>
+      <strong>Elige el Excel</strong> o arrástralo aquí
+      <span id="nombreArchivo">Ningún archivo elegido</span>
     </label>
-    <div class="row">
-      <label class="f" for="fecha">Fecha a consultar</label>
-      <input type="date" id="fecha">
-      <button type="button" id="btnManana">Mañana</button>
+
+    <h3>Fecha</h3>
+    <input type="date" id="fecha" aria-label="Fecha a consultar">
+    <button type="button" id="btnManana">Mañana</button>
+
+    <h3>Mostrar</h3>
+    <label class="check"><input type="checkbox" id="verAusentes" checked> Están de vacaciones o permiso</label>
+    <label class="check"><input type="checkbox" id="verEmpiezan" checked> Empiezan vacaciones o permiso</label>
+
+    <h3>Tipo</h3>
+    <label class="check"><input type="checkbox" id="tVac" checked> Vacaciones</label>
+    <label class="check"><input type="checkbox" id="tPer" checked> Permiso</label>
+
+    <div id="secUbic" hidden><h3>Ubicación</h3><div class="opts" id="ubic"></div></div>
+    <div id="secDep" hidden><h3>Departamento</h3><div class="opts" id="dep"></div></div>
+  </aside>
+
+  <main class="main">
+    <div id="error" class="error" role="alert" hidden></div>
+    <p id="inicio" class="aviso">Elige el Excel de vacaciones en el menú lateral.</p>
+
+    <div id="contenido" hidden>
+      <p class="fecha" id="fechaTitulo"></p>
+      <p class="aviso" id="sinSeccion" hidden>Marca al menos una opción en «Mostrar».</p>
+
+      <section class="card" id="cardAusentes">
+        <h2>Están de vacaciones o permiso <span class="n" id="nAusentes"></span></h2>
+        <ul id="listaAusentes"></ul>
+        <p class="vacio" id="vacioAusentes" hidden>Nadie con estos filtros.</p>
+      </section>
+
+      <section class="card" id="cardEmpiezan">
+        <h2>Empiezan vacaciones o permiso <span class="n" id="nEmpiezan"></span></h2>
+        <ul id="listaEmpiezan"></ul>
+        <p class="vacio" id="vacioEmpiezan" hidden>Nadie con estos filtros.</p>
+      </section>
+
+      <p class="meta" id="meta"></p>
     </div>
-  </div>
 
-  <div id="error" class="error" role="alert" hidden></div>
-
-  <div id="resultado" class="card" hidden>
-    <h2 id="titulo"></h2>
-    <ul id="lista"></ul>
-    <p class="nadie" id="nadie" hidden>Nadie tiene vacaciones ese día.</p>
-    <p class="meta" id="meta"></p>
-  </div>
-
-  <p class="privacy">El archivo se lee en tu navegador y no se sube a ningún sitio. Esta página no contiene datos de nadie.</p>
-</main>
+    <p class="privacy">El archivo se lee en tu navegador y no se sube a ningún sitio. Esta página no contiene datos de nadie.</p>
+  </main>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 /*
- * vacaciones.js — lógica para localizar quién tiene vacaciones en una fecha.
- *
- * Es la misma lógica que vacaciones_manana.py, pero para el navegador.
- * No depende de la página: recibe filas y celdas combinadas ya leídas del
- * Excel, así que también se puede probar desde Node.
+ * vacaciones.js — lógica para localizar quién está (o empieza) de vacaciones
+ * o permiso en una fecha. Equivale a vacaciones_manana.py, pero para el
+ * navegador. Recibe filas y celdas combinadas ya leídas del Excel, así que
+ * también se puede probar desde Node.
  *
  * Estructura esperada de la hoja (índices en base 0):
- *   fila 1 -> nombre del mes en celdas combinadas ("SEPTIEMBRE")
- *   fila 3 -> número de día del mes
- *   fila 4+ -> una fila por persona (col A = departamento, C = persona,
- *              D = horas trabajadas), calendario desde la columna J.
- *   "V" en el calendario = vacaciones.
+ *   fila 1  -> nombre del mes en celdas combinadas ("SEPTIEMBRE")
+ *   fila 3  -> número de día del mes
+ *   fila 4+ -> una fila por persona: A = departamento, B = ubicación,
+ *              C = persona, D = horas; calendario desde la columna J.
+ *   Códigos del calendario: V (y VS) = vacaciones, P = permiso retribuido.
  */
 (function (root) {
   "use strict";
@@ -126,24 +146,28 @@
     filaNumDia: 3,
     primeraFilaPersonas: 4,
     colDepartamento: 0,
+    colUbicacion: 1,
     colPersona: 2,
     colHoras: 3,
-    codigoVacaciones: "V",
     filasVaciasParaParar: 5,
   };
 
+  // Código de celda -> tipo de ausencia.
+  const TIPOS = { V: "vacaciones", VS: "vacaciones", P: "permiso" };
+  const SIN_DATO = "(sin indicar)";
+
   function normalizar(texto) {
     if (texto === null || texto === undefined) return "";
-    return String(texto)
-      .trim()
-      .toUpperCase()
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "");
+    return String(texto).trim().toUpperCase()
+      .normalize("NFD").replace(/[̀-ͯ]/g, "");
+  }
+
+  function vacio(v) {
+    return v === null || v === undefined || (typeof v === "string" && v.trim() === "");
   }
 
   function letraColumna(indice0) {
-    let n = indice0 + 1;
-    let s = "";
+    let n = indice0 + 1, s = "";
     while (n > 0) {
       const r = (n - 1) % 26;
       s = String.fromCharCode(65 + r) + s;
@@ -169,7 +193,7 @@
   }
 
   /** Elige la hoja del calendario: primero las que se llaman "vacaciones",
-   *  después cualquier hoja que tenga los bloques de meses. */
+   *  después cualquier hoja con los bloques de meses. */
   function elegirHoja(nombres, getDatos) {
     const porNombre = nombres.filter((n) => normalizar(n).includes("VACACIONES"));
     const resto = nombres.filter((n) => !porNombre.includes(n));
@@ -178,8 +202,13 @@
     }
     throw new Error(
       "No se encontró ninguna hoja con el calendario de vacaciones (hojas del libro: " +
-        nombres.join(", ") + ")."
+      nombres.join(", ") + ")."
     );
+  }
+
+  function primeraColumnaCalendario(datos) {
+    const b = bloquesDeMes(datos.rows, datos.merges).filter((x) => MESES.includes(x.mes));
+    return Math.min.apply(null, b.map((x) => x.ini));
   }
 
   function localizarColumnaDia(datos, fecha, anioHoja) {
@@ -188,20 +217,17 @@
     if (candidatos.length === 0) {
       throw new Error("No se encontró el mes '" + nombreMes + "' en la hoja.");
     }
-
     let bloque;
     if (fecha.getFullYear() === anioHoja) {
       bloque = candidatos[0];
     } else if (fecha.getFullYear() === anioHoja + 1) {
-      // 1 de enero del año siguiente: bloque extra de ENERO al final.
-      bloque = candidatos[candidatos.length - 1];
+      bloque = candidatos[candidatos.length - 1]; // 1 de enero del año siguiente
     } else {
       throw new Error(
         "La fecha " + fecha.toLocaleDateString("es-ES") +
         " no corresponde al año de la hoja (" + anioHoja + ")."
       );
     }
-
     const filaDias = datos.rows[CFG.filaNumDia] || [];
     for (let c = bloque.ini; c <= bloque.fin; c++) {
       if (Number(filaDias[c]) === fecha.getDate()) return c;
@@ -209,42 +235,99 @@
     throw new Error("No se encontró el día " + fecha.getDate() + " en el bloque de " + nombreMes + ".");
   }
 
-  function personasConVacaciones(datos, columna) {
-    const resultado = [];
-    let deptoActual = null;
-    let vacias = 0;
+  /** Una fila es una persona si tiene nombre y (horas o algo en el calendario).
+   *  Se excluyen las filas resumen ("BCN - limpio", etc.). */
+  function esFilaPersona(fila, primeraCol) {
+    const nombre = fila[CFG.colPersona];
+    if (vacio(nombre)) return false;
+    if (normalizar(nombre).includes("LIMPIO")) return false;
+    const horas = fila[CFG.colHoras];
+    if (typeof horas === "number" && isFinite(horas)) return true;
+    for (let c = primeraCol; c < fila.length; c++) if (!vacio(fila[c])) return true;
+    return false;
+  }
 
+  function leerPersonas(datos) {
+    const primera = primeraColumnaCalendario(datos);
+    const personas = [];
+    let vacias = 0;
     for (let r = CFG.primeraFilaPersonas; r < datos.rows.length; r++) {
       const fila = datos.rows[r] || [];
-      const horas = fila[CFG.colHoras];
-      const esPersona = typeof horas === "number" && isFinite(horas);
-
-      if (esPersona) {
+      if (esFilaPersona(fila, primera)) {
         vacias = 0;
         const depto = fila[CFG.colDepartamento];
-        if (depto) deptoActual = String(depto);
-
-        const valor = fila[columna];
-        if (typeof valor === "string" && valor.trim().toUpperCase() === CFG.codigoVacaciones) {
-          resultado.push({
-            persona: String(fila[CFG.colPersona]),
-            departamento: deptoActual,
-          });
-        }
-      } else {
-        vacias++;
-        if (vacias >= CFG.filasVaciasParaParar) break; // lo que sigue es la leyenda
+        const ubic = fila[CFG.colUbicacion];
+        personas.push({
+          persona: String(fila[CFG.colPersona]).trim(),
+          departamento: vacio(depto) ? null : String(depto).trim(),
+          ubicacion: vacio(ubic) ? null : String(ubic).trim(),
+          fila,
+        });
+      } else if (++vacias >= CFG.filasVaciasParaParar) {
+        break; // lo que sigue es la leyenda
       }
     }
-    return resultado;
+    return personas;
+  }
+
+  function tipoDeCelda(v) {
+    if (typeof v !== "string") return null;
+    return TIPOS[v.trim().toUpperCase()] || null;
+  }
+
+  /** ¿La ausencia de `tipo` empieza en `col`? Se mira hacia atrás saltando
+   *  huecos (fines de semana) y festivos ("F"); si el último día laborable
+   *  anterior ya era del mismo tipo, es una continuación. */
+  function empiezaEn(fila, col, primeraCol, tipo) {
+    for (let c = col - 1; c >= primeraCol; c--) {
+      const v = fila[c];
+      if (vacio(v)) continue;
+      if (typeof v === "string" && v.trim().toUpperCase() === "F") continue;
+      return tipoDeCelda(v) !== tipo;
+    }
+    return true;
+  }
+
+  function opcionesFiltro(personas) {
+    const u = new Set(), d = new Set();
+    for (const p of personas) {
+      u.add(p.ubicacion || SIN_DATO);
+      d.add(p.departamento || SIN_DATO);
+    }
+    const ord = (s) => Array.from(s).sort((a, b) => a.localeCompare(b, "es"));
+    return { ubicaciones: ord(u), departamentos: ord(d) };
   }
 
   function calcular(datos, fecha, anioHoja) {
     const columna = localizarColumnaDia(datos, fecha, anioHoja);
-    return { columna: letraColumna(columna), personas: personasConVacaciones(datos, columna) };
+    const primera = primeraColumnaCalendario(datos);
+    const todas = leerPersonas(datos);
+    const personas = [];
+    for (const p of todas) {
+      const tipo = tipoDeCelda(p.fila[columna]);
+      if (tipo) {
+        personas.push({
+          persona: p.persona, departamento: p.departamento, ubicacion: p.ubicacion,
+          tipo, empieza: empiezaEn(p.fila, columna, primera, tipo),
+        });
+      }
+    }
+    return {
+      columna: letraColumna(columna), personas,
+      opciones: opcionesFiltro(todas), totalPersonas: todas.length,
+    };
   }
 
-  const api = { MESES, CFG, elegirHoja, calcular, letraColumna };
+  /** f = { tipos:Set, ubicOcultas:Set, deptoOcultos:Set } */
+  function filtrar(personas, f) {
+    return personas.filter((p) =>
+      f.tipos.has(p.tipo) &&
+      !f.ubicOcultas.has(p.ubicacion || SIN_DATO) &&
+      !f.deptoOcultos.has(p.departamento || SIN_DATO)
+    );
+  }
+
+  const api = { MESES, CFG, SIN_DATO, normalizar, elegirHoja, calcular, filtrar, letraColumna };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.Vacaciones = api;
 })(typeof self !== "undefined" ? self : this);
@@ -253,8 +336,8 @@
 <script>
   "use strict";
   const $ = (id) => document.getElementById(id);
-  let libro = null;
-  let nombreArchivo = "";
+  let libro = null, datos = null, hojaNombre = "", anioHoja = 0;
+  const ocultasU = new Set(), ocultasD = new Set();
 
   function isoLocal(d) {
     const p = (n) => String(n).padStart(2, "0");
@@ -264,7 +347,7 @@
     const d = new Date();
     d.setDate(d.getDate() + 1);
     $("fecha").value = isoLocal(d);
-    mostrar();
+    render();
   }
 
   function datosHoja(nombre) {
@@ -278,67 +361,110 @@
   }
 
   function mostrarError(msg) {
-    $("resultado").hidden = true;
+    $("contenido").hidden = true;
     $("error").textContent = msg;
     $("error").hidden = false;
   }
 
-  function mostrar() {
-    if (!libro) return;
-    $("error").hidden = true;
+  // Casillas de ubicación / departamento generadas a partir del Excel.
+  function pintarOpciones(seccion, contenedor, valores, ocultas) {
+    contenedor.replaceChildren();
+    ocultas.clear();
+    const util = valores.some((v) => v !== Vacaciones.SIN_DATO);
+    seccion.hidden = !util; // si no hay datos útiles, no se muestra el filtro
+    if (!util) return;
+    for (const v of valores) {
+      const l = document.createElement("label");
+      l.className = "check";
+      const c = document.createElement("input");
+      c.type = "checkbox";
+      c.checked = !ocultas.has(v);
+      c.addEventListener("change", () => { c.checked ? ocultas.delete(v) : ocultas.add(v); render(); });
+      l.append(c, document.createTextNode(" " + v));
+      contenedor.appendChild(l);
+    }
+  }
 
+  function pintarLista(ul, vacio, contador, items) {
+    ul.replaceChildren();
+    contador.textContent = "(" + items.length + ")";
+    vacio.hidden = items.length > 0;
+    for (const p of items) {
+      const li = document.createElement("li");
+      const nombre = document.createElement("span");
+      nombre.textContent = p.persona;
+      const tags = document.createElement("span");
+      tags.className = "tags";
+      const add = (txt, cls) => {
+        const t = document.createElement("span");
+        t.className = "tag " + (cls || "");
+        t.textContent = txt;
+        tags.appendChild(t);
+      };
+      add(p.tipo === "permiso" ? "Permiso" : "Vacaciones", p.tipo);
+      if (p.ubicacion) add(p.ubicacion);
+      if (p.departamento) add(p.departamento);
+      li.append(nombre, tags);
+      ul.appendChild(li);
+    }
+  }
+
+  function render() {
+    if (!datos) return;
+    $("error").hidden = true;
     const [y, m, d] = $("fecha").value.split("-").map(Number);
     if (!y) return mostrarError("Elige una fecha válida.");
     const fecha = new Date(y, m - 1, d);
 
-    try {
-      const hoja = Vacaciones.elegirHoja(libro.SheetNames, datosHoja);
-      const anio = Number((hoja + " " + nombreArchivo).match(/20\d{2}/)?.[0]) || fecha.getFullYear();
-      const { columna, personas } = Vacaciones.calcular(datosHoja(hoja), fecha, anio);
+    let res;
+    try { res = Vacaciones.calcular(datos, fecha, anioHoja); }
+    catch (e) { return mostrarError(e.message); }
 
-      $("titulo").textContent = fecha.toLocaleDateString("es-ES", {
-        weekday: "long", day: "numeric", month: "long", year: "numeric",
-      });
-      const ul = $("lista");
-      ul.replaceChildren();
-      for (const p of personas) {
-        const li = document.createElement("li");
-        const nombre = document.createElement("span");
-        nombre.textContent = p.persona;
-        li.appendChild(nombre);
-        if (p.departamento) {
-          const chip = document.createElement("span");
-          chip.className = "chip";
-          chip.textContent = p.departamento;
-          li.appendChild(chip);
-        }
-        ul.appendChild(li);
-      }
-      $("nadie").hidden = personas.length > 0;
-      $("meta").textContent = "Hoja «" + hoja + "», columna " + columna + ".";
-      $("resultado").hidden = false;
-    } catch (e) {
-      mostrarError(e.message);
-    }
+    const tipos = new Set();
+    if ($("tVac").checked) tipos.add("vacaciones");
+    if ($("tPer").checked) tipos.add("permiso");
+    const lista = Vacaciones.filtrar(res.personas, {
+      tipos, ubicOcultas: ocultasU, deptoOcultos: ocultasD,
+    });
+
+    $("fechaTitulo").textContent = fecha.toLocaleDateString("es-ES", {
+      weekday: "long", day: "numeric", month: "long", year: "numeric",
+    });
+    $("cardAusentes").hidden = !$("verAusentes").checked;
+    $("cardEmpiezan").hidden = !$("verEmpiezan").checked;
+    $("sinSeccion").hidden = $("verAusentes").checked || $("verEmpiezan").checked;
+    pintarLista($("listaAusentes"), $("vacioAusentes"), $("nAusentes"), lista);
+    pintarLista($("listaEmpiezan"), $("vacioEmpiezan"), $("nEmpiezan"), lista.filter((p) => p.empieza));
+    $("meta").textContent = "Hoja «" + hojaNombre + "», columna " + res.columna + ", " + res.totalPersonas + " personas leídas.";
+    $("inicio").hidden = true;
+    $("contenido").hidden = false;
   }
 
   async function leer(archivo) {
     if (!archivo) return;
     try {
-      const buf = await archivo.arrayBuffer();
-      libro = XLSX.read(buf, { type: "array" });
-      nombreArchivo = archivo.name;
+      libro = XLSX.read(await archivo.arrayBuffer(), { type: "array" });
+      hojaNombre = Vacaciones.elegirHoja(libro.SheetNames, datosHoja);
+      datos = datosHoja(hojaNombre);
+      anioHoja = Number((hojaNombre + " " + archivo.name).match(/20\d{2}/)?.[0]) || new Date().getFullYear();
       $("nombreArchivo").textContent = archivo.name;
-      mostrar();
+      const [y, m, d] = $("fecha").value.split("-").map(Number);
+      const op = Vacaciones.calcular(datos, new Date(y, m - 1, d), anioHoja).opciones;
+      pintarOpciones($("secUbic"), $("ubic"), op.ubicaciones, ocultasU);
+      pintarOpciones($("secDep"), $("dep"), op.departamentos, ocultasD);
+      render();
     } catch (e) {
-      libro = null;
-      mostrarError("No se pudo leer el archivo. ¿Es un .xlsx válido y no está protegido con contraseña?");
+      datos = null;
+      mostrarError(e.message && !/zip|corrupt|CFB|Unsupported/i.test(e.message)
+        ? e.message
+        : "No se pudo leer el archivo. ¿Es un .xlsx válido y sin contraseña?");
     }
   }
 
   $("archivo").addEventListener("change", (e) => leer(e.target.files[0]));
-  $("fecha").addEventListener("change", mostrar);
+  $("fecha").addEventListener("change", render);
   $("btnManana").addEventListener("click", ponerManana);
+  ["verAusentes", "verEmpiezan", "tVac", "tPer"].forEach((id) => $(id).addEventListener("change", render));
 
   const drop = $("drop");
   ["dragenter", "dragover"].forEach((ev) =>
@@ -347,7 +473,8 @@
     drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
   drop.addEventListener("drop", (e) => leer(e.dataTransfer.files[0]));
 
-  ponerManana();
+  const manana = new Date(); manana.setDate(manana.getDate() + 1);
+  $("fecha").value = isoLocal(manana);
 </script>
 </body>
 </html>
