@@ -392,14 +392,14 @@
         persona: p.persona, departamento: p.departamento, ubicacion: p.ubicacion,
         horas: esNum(h) ? h : null,
         pendientes: esNum(pd) ? pd : null,
-        bajoHoras: esNum(h) && h < CFG.horasVueling,
+        altoHoras: esNum(h) && h > CFG.horasVueling,
       };
     });
     return {
       horasVueling: CFG.horasVueling,
       personas: detalle.length,
       sinHoras: detalle.filter((d) => d.horas === null).length,
-      bajoHoras: detalle.filter((d) => d.bajoHoras).length,
+      altoHoras: detalle.filter((d) => d.altoHoras).length,
       detalle,
     };
   }
@@ -539,7 +539,7 @@
         r.personas + (r.personas === 1 ? " persona" : " personas") + " con algo en la columna A. "));
       const rojo = document.createElement("span");
       rojo.className = "rojo";
-      rojo.textContent = r.bajoHoras + " por debajo de " + fmt(r.horasVueling) + " h (en rojo)";
+      rojo.textContent = r.altoHoras + " por debajo de " + fmt(r.horasVueling) + " h (en rojo)";
       det.append(rojo, document.createTextNode(
         "." + (r.sinHoras > 0 ? " " + r.sinHoras + (r.sinHoras === 1 ? " sin horas indicadas." : " sin horas indicadas.") : "")));
     }
@@ -567,9 +567,9 @@
       tdP.textContent = p.pendientes === null ? "—" : fmt(p.pendientes);
 
       const tdH = document.createElement("td");
-      tdH.className = "num horas" + (p.horas === null ? " nada" : p.bajoHoras ? " bajo" : "");
+      tdH.className = "num horas" + (p.horas === null ? " nada" : p.altoHoras ? " bajo" : "");
       tdH.textContent = p.horas === null ? "sin horas" : fmt(p.horas) + " h";
-      if (p.bajoHoras) tdH.title = "Por debajo de " + fmt(r.horasVueling) + " h";
+      if (p.altoHoras) tdH.title = "Por debajo de " + fmt(r.horasVueling) + " h";
 
       tr.append(tdN, tdP, tdH);
       cuerpo.appendChild(tr);
