@@ -36,6 +36,10 @@
   button:disabled { opacity: .55; cursor: not-allowed; }
   .side small { display: block; color: #cfe0ff; font-size: .8rem; margin-top: 6px; }
   .grande { font-size: 2rem; font-weight: 700; color: var(--azul); margin: 0; line-height: 1.2; }
+  h2.sub { margin: 16px 0 4px; font-size: .95rem; }
+  #listaHoras { max-height: 340px; overflow-y: auto; border-top: 1px solid var(--azul-claro); padding-right: 6px; }
+  .horas { font-weight: 700; color: var(--azul); white-space: nowrap; }
+  .horas.nada { font-weight: 400; color: var(--muted); }
   .grande span { font-size: 1rem; font-weight: 500; color: var(--muted); }
 
   /* Contenido: blanco con acentos azules */
@@ -109,6 +113,8 @@
       <h2>Horas trabajadas totales</h2>
       <p class="grande" id="horasTotal"></p>
       <p class="meta" id="horasDetalle"></p>
+      <h2 class="sub">Por persona</h2>
+      <ul id="listaHoras"></ul>
     </section>
     <p id="inicio" class="aviso">Elige el Excel de vacaciones en el menú lateral.</p>
 
@@ -346,17 +352,24 @@
     );
   }
 
-  /** Suma de «Horas trabajadas» (col. D) de las personas con algo en la col. A.
+  /** Suma de «Horas trabajadas» (col. D) de las personas con algo en la col. A,
+   *  con el desglose por persona (en el orden del Excel).
    *  Independiente de la fecha y de los filtros. Las filas resumen
    *  («BCN - limpio») no cuentan como personas. */
   function horasTotales(datos) {
     const conA = leerPersonas(datos).filter((p) => p.departamento !== null);
     let total = 0, sinHoras = 0;
+    const detalle = [];
     for (const p of conA) {
       const h = p.fila[CFG.colHoras];
-      if (typeof h === "number" && isFinite(h)) total += h; else sinHoras++;
+      const ok = typeof h === "number" && isFinite(h);
+      if (ok) total += h; else sinHoras++;
+      detalle.push({
+        persona: p.persona, departamento: p.departamento, ubicacion: p.ubicacion,
+        horas: ok ? h : null,
+      });
     }
-    return { total: Math.round(total * 100) / 100, personas: conA.length, sinHoras };
+    return { total: Math.round(total * 100) / 100, personas: conA.length, sinHoras, detalle };
   }
 
   const api = { MESES, CFG, SIN_DATO, normalizar, elegirHoja, calcular, filtrar, horasTotales, letraColumna };
@@ -488,6 +501,30 @@
       : "Suma de " + r.personas + (r.personas === 1 ? " persona" : " personas") + " con algo en la columna A.";
     if (r.sinHoras > 0) det += " " + r.sinHoras + (r.sinHoras === 1 ? " no tiene" : " no tienen") + " horas indicadas.";
     $("horasDetalle").textContent = det;
+    const ul = $("listaHoras");
+    ul.replaceChildren();
+    for (const p of r.detalle) {
+      const li = document.createElement("li");
+      const nombre = document.createElement("span");
+      nombre.textContent = p.persona;
+      const tags = document.createElement("span");
+      tags.className = "tags";
+      for (const txt of [p.departamento, p.ubicacion]) {
+        if (!txt) continue;
+        const tg = document.createElement("span");
+        tg.className = "tag";
+        tg.textContent = txt;
+        tags.appendChild(tg);
+      }
+      const h = document.createElement("span");
+      h.className = "horas" + (p.horas === null ? " nada" : "");
+      h.textContent = p.horas === null ? "sin horas" : fmt(p.horas) + " h";
+      const der = document.createElement("span");
+      der.className = "tags";
+      der.append(tags, h);
+      li.append(nombre, der);
+      ul.appendChild(li);
+    }
     $("cardHoras").hidden = false;
   }
 
