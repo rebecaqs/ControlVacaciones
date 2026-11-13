@@ -484,7 +484,6 @@
   drop.addEventListener("drop", (e) => leer(e.dataTransfer.files[0]));
 
   $("fecha").value = isoLocal(new Date()); // al cargar: hoy
-  if (new Date().getDay() === 5) $("btnManana").textContent = "Lunes";
 </script>
 </body>
 </html>
