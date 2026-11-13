@@ -36,6 +36,10 @@
   button:disabled { opacity: .55; cursor: not-allowed; }
   .side small { display: block; color: #cfe0ff; font-size: .8rem; margin-top: 6px; }
   .grande { font-size: 2rem; font-weight: 700; color: var(--azul); margin: 0; line-height: 1.2; }
+  .cab { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .cab h2 { margin: 0; }
+  button.sec { margin: 0; color: var(--azul); background: #fff; border: 1px solid var(--azul-borde); }
+  button.sec:hover { background: var(--azul-claro); }
   h2.sub { margin: 16px 0 4px; font-size: .95rem; }
   #listaHoras { max-height: 340px; overflow-y: auto; border-top: 1px solid var(--azul-claro); padding-right: 6px; }
   .horas { font-weight: 700; color: var(--azul); white-space: nowrap; }
@@ -110,10 +114,13 @@
     <div id="error" class="error" role="alert" hidden></div>
 
     <section class="card" id="cardHoras" hidden>
-      <h2>Horas trabajadas totales</h2>
+      <div class="cab">
+        <h2>Horas trabajadas totales</h2>
+        <button type="button" id="btnVerAusencias" class="sec">Ver ausencias</button>
+      </div>
       <p class="grande" id="horasTotal"></p>
       <p class="meta" id="horasDetalle"></p>
-      <h2 class="sub">Por persona</h2>
+      <h2 class="sub" id="subPersonas">Por persona</h2>
       <ul id="listaHoras"></ul>
     </section>
     <p id="inicio" class="aviso">Elige el Excel de vacaciones en el menú lateral.</p>
@@ -487,6 +494,7 @@
     pintarLista($("listaEmpiezan"), $("vacioEmpiezan"), $("nEmpiezan"), lista.filter((p) => p.empieza));
     $("meta").textContent = "Hoja «" + hojaNombre + "», columna " + res.columna + ", " + res.totalPersonas + " personas leídas.";
     $("inicio").hidden = true;
+    $("cardHoras").hidden = true;
     $("contenido").hidden = false;
   }
 
@@ -503,6 +511,7 @@
     $("horasDetalle").textContent = det;
     const ul = $("listaHoras");
     ul.replaceChildren();
+    $("subPersonas").hidden = ul.hidden = r.personas === 0;
     for (const p of r.detalle) {
       const li = document.createElement("li");
       const nombre = document.createElement("span");
@@ -525,6 +534,8 @@
       li.append(nombre, der);
       ul.appendChild(li);
     }
+    $("error").hidden = true;
+    $("contenido").hidden = true;
     $("cardHoras").hidden = false;
   }
 
@@ -556,6 +567,7 @@
   $("fecha").addEventListener("change", render);
   $("btnManana").addEventListener("click", ponerManana);
   $("btnHoras").addEventListener("click", calcularHoras);
+  $("btnVerAusencias").addEventListener("click", render);
   ["verAusentes", "verEmpiezan", ...Object.keys(CASILLAS_TIPO)].forEach((id) => $(id).addEventListener("change", render));
 
   const drop = $("drop");
