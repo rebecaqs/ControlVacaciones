@@ -32,7 +32,11 @@
     border: 1px solid #fff; border-radius: 8px; padding: 6px 10px; }
   button { font: inherit; font-weight: 600; color: var(--azul); background: #fff; margin-top: 8px;
     border: 1px solid #fff; border-radius: 8px; padding: 5px 12px; cursor: pointer; }
-  button:hover { background: var(--azul-claro); }
+  button:hover:not(:disabled) { background: var(--azul-claro); }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  .side small { display: block; color: #cfe0ff; font-size: .8rem; margin-top: 6px; }
+  .grande { font-size: 2rem; font-weight: 700; color: var(--azul); margin: 0; line-height: 1.2; }
+  .grande span { font-size: 1rem; font-weight: 500; color: var(--muted); }
 
   /* Contenido: blanco con acentos azules */
   .main { padding: 24px 20px 48px; max-width: 760px; width: 100%; }
@@ -68,13 +72,17 @@
 <body>
 <div class="layout">
   <aside class="side">
-    <h1>Vacaciones</h1>
+    <h1>Control de horas</h1>
 
     <label class="drop" id="drop">
       <input type="file" id="archivo" accept=".xlsx,.xlsm">
       <strong>Elige el Excel</strong> o arrástralo aquí
       <span id="nombreArchivo">Ningún archivo elegido</span>
     </label>
+
+    <h3>Horas trabajadas</h3>
+    <button type="button" id="btnHoras" disabled>Calcular horas totales</button>
+    <small id="ayudaHoras">Suma las horas de todas las personas con algo en la columna A.</small>
 
     <h3>Fecha</h3>
     <input type="date" id="fecha" aria-label="Fecha a consultar">
@@ -96,6 +104,12 @@
 
   <main class="main">
     <div id="error" class="error" role="alert" hidden></div>
+
+    <section class="card" id="cardHoras" hidden>
+      <h2>Horas trabajadas totales</h2>
+      <p class="grande" id="horasTotal"></p>
+      <p class="meta" id="horasDetalle"></p>
+    </section>
     <p id="inicio" class="aviso">Elige el Excel de vacaciones en el menú lateral.</p>
 
     <div id="contenido" hidden>
@@ -332,7 +346,20 @@
     );
   }
 
-  const api = { MESES, CFG, SIN_DATO, normalizar, elegirHoja, calcular, filtrar, letraColumna };
+  /** Suma de «Horas trabajadas» (col. D) de las personas con algo en la col. A.
+   *  Independiente de la fecha y de los filtros. Las filas resumen
+   *  («BCN - limpio») no cuentan como personas. */
+  function horasTotales(datos) {
+    const conA = leerPersonas(datos).filter((p) => p.departamento !== null);
+    let total = 0, sinHoras = 0;
+    for (const p of conA) {
+      const h = p.fila[CFG.colHoras];
+      if (typeof h === "number" && isFinite(h)) total += h; else sinHoras++;
+    }
+    return { total: Math.round(total * 100) / 100, personas: conA.length, sinHoras };
+  }
+
+  const api = { MESES, CFG, SIN_DATO, normalizar, elegirHoja, calcular, filtrar, horasTotales, letraColumna };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.Vacaciones = api;
 })(typeof self !== "undefined" ? self : this);
@@ -450,6 +477,20 @@
     $("contenido").hidden = false;
   }
 
+  function calcularHoras() {
+    if (!datos) return;
+    const r = Vacaciones.horasTotales(datos);
+    const fmt = (n) => n.toLocaleString("es-ES", { maximumFractionDigits: 2 });
+    $("horasTotal").replaceChildren(document.createTextNode(fmt(r.total) + " "),
+      Object.assign(document.createElement("span"), { textContent: "horas" }));
+    let det = r.personas === 0
+      ? "Ninguna persona tiene algo en la columna A."
+      : "Suma de " + r.personas + (r.personas === 1 ? " persona" : " personas") + " con algo en la columna A.";
+    if (r.sinHoras > 0) det += " " + r.sinHoras + (r.sinHoras === 1 ? " no tiene" : " no tienen") + " horas indicadas.";
+    $("horasDetalle").textContent = det;
+    $("cardHoras").hidden = false;
+  }
+
   async function leer(archivo) {
     if (!archivo) return;
     try {
@@ -458,6 +499,8 @@
       datos = datosHoja(hojaNombre);
       anioHoja = Number((hojaNombre + " " + archivo.name).match(/20\d{2}/)?.[0]) || new Date().getFullYear();
       $("nombreArchivo").textContent = archivo.name;
+      $("btnHoras").disabled = false;
+      $("cardHoras").hidden = true;
       const [y, m, d] = $("fecha").value.split("-").map(Number);
       const op = Vacaciones.calcular(datos, new Date(y, m - 1, d), anioHoja).opciones;
       pintarOpciones($("secUbic"), $("ubic"), op.ubicaciones, ocultasU);
@@ -465,6 +508,7 @@
       render();
     } catch (e) {
       datos = null;
+      $("btnHoras").disabled = true;
       mostrarError(e.message && !/zip|corrupt|CFB|Unsupported/i.test(e.message)
         ? e.message
         : "No se pudo leer el archivo. ¿Es un .xlsx válido y sin contraseña?");
@@ -474,6 +518,7 @@
   $("archivo").addEventListener("change", (e) => leer(e.target.files[0]));
   $("fecha").addEventListener("change", render);
   $("btnManana").addEventListener("click", ponerManana);
+  $("btnHoras").addEventListener("click", calcularHoras);
   ["verAusentes", "verEmpiezan", ...Object.keys(CASILLAS_TIPO)].forEach((id) => $(id).addEventListener("change", render));
 
   const drop = $("drop");
