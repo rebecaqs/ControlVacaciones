@@ -350,10 +350,14 @@
     const p = (n) => String(n).padStart(2, "0");
     return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
   }
-  function ponerManana() {
+  // Siguiente día a consultar: mañana, salvo si hoy es viernes (entonces, el lunes).
+  function proximoDia() {
     const d = new Date();
-    d.setDate(d.getDate() + 1);
-    $("fecha").value = isoLocal(d);
+    d.setDate(d.getDate() + (d.getDay() === 5 ? 3 : 1));
+    return d;
+  }
+  function ponerManana() {
+    $("fecha").value = isoLocal(proximoDia());
     render();
   }
 
@@ -479,8 +483,8 @@
     drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
   drop.addEventListener("drop", (e) => leer(e.dataTransfer.files[0]));
 
-  const manana = new Date(); manana.setDate(manana.getDate() + 1);
-  $("fecha").value = isoLocal(manana);
+  $("fecha").value = isoLocal(proximoDia());
+  if (new Date().getDay() === 5) $("btnManana").textContent = "Lunes";
 </script>
 </body>
 </html>
