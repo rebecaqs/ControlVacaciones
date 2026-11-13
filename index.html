@@ -539,7 +539,7 @@
         r.personas + (r.personas === 1 ? " persona" : " personas") + " con algo en la columna A. "));
       const rojo = document.createElement("span");
       rojo.className = "rojo";
-      rojo.textContent = r.altoHoras + " por debajo de " + fmt(r.horasVueling) + " h (en rojo)";
+      rojo.textContent = r.altoHoras + " por encima de " + fmt(r.horasVueling) + " h (en rojo)";
       det.append(rojo, document.createTextNode(
         "." + (r.sinHoras > 0 ? " " + r.sinHoras + (r.sinHoras === 1 ? " sin horas indicadas." : " sin horas indicadas.") : "")));
     }
