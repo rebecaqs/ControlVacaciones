@@ -40,14 +40,26 @@
   .cab h2 { margin: 0; }
   button.sec { margin: 0; color: var(--azul); background: #fff; border: 1px solid var(--azul-borde); }
   button.sec:hover { background: var(--azul-claro); }
+  .tabla { max-height: 560px; overflow: auto; border-top: 1px solid var(--azul-claro); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 9px 8px; text-align: left; border-top: 1px solid var(--azul-claro); vertical-align: middle; }
+  thead th { position: sticky; top: 0; background: #fff; z-index: 1; font-size: .78rem; color: var(--muted);
+    font-weight: 600; border-top: 0; border-bottom: 1px solid var(--azul-borde); }
+  tbody tr:first-child td { border-top: 0; }
+  th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.num { white-space: nowrap; }
+  th.num { line-height: 1.2; }
+  td.pend { font-weight: 600; color: var(--azul); }
+  td.horas { font-weight: 700; color: var(--azul); }
+  td.horas.bajo { color: #c62828; }
+  td.nada { font-weight: 400; color: var(--muted); }
+  td .tags { display: inline-flex; margin-left: 8px; vertical-align: middle; }
+  .rojo { color: #c62828; font-weight: 600; }
   h2.sub { margin: 16px 0 4px; font-size: .95rem; }
-  #listaHoras { max-height: 340px; overflow-y: auto; border-top: 1px solid var(--azul-claro); padding-right: 6px; }
-  .horas { font-weight: 700; color: var(--azul); white-space: nowrap; }
-  .horas.nada { font-weight: 400; color: var(--muted); }
   .grande span { font-size: 1rem; font-weight: 500; color: var(--muted); }
 
   /* Contenido: blanco con acentos azules */
-  .main { padding: 24px 20px 48px; max-width: 760px; width: 100%; }
+  .main { padding: 24px 20px 48px; max-width: 760px; width: 100%; min-width: 0; }
   .fecha { font-size: 1.35rem; font-weight: 600; color: var(--azul-osc); margin: 0 0 16px; }
   .fecha::first-letter { text-transform: uppercase; }
   .card { background: #fff; border: 1px solid var(--azul-borde); border-radius: 12px;
@@ -74,6 +86,7 @@
     .layout { grid-template-columns: 1fr; }
     .side { position: static; height: auto; }
     .main { padding: 16px; }
+    th, td { padding: 8px 4px; }
   }
 </style>
 </head>
@@ -88,9 +101,9 @@
       <span id="nombreArchivo">Ningún archivo elegido</span>
     </label>
 
-    <h3>Horas trabajadas</h3>
-    <button type="button" id="btnHoras" disabled>Calcular horas totales</button>
-    <small id="ayudaHoras">Suma las horas de todas las personas con algo en la columna A.</small>
+    <h3>Horas</h3>
+    <button type="button" id="btnHoras" disabled>Ver horas por persona</button>
+    <small id="ayudaHoras">Horas y vacaciones pendientes de las personas con algo en la columna A.</small>
 
     <h3>Fecha</h3>
     <input type="date" id="fecha" aria-label="Fecha a consultar">
@@ -115,13 +128,17 @@
 
     <section class="card" id="cardHoras" hidden>
       <div class="cab">
-        <h2>Horas trabajadas totales</h2>
+        <h2>Horas totales Vueling</h2>
         <button type="button" id="btnVerAusencias" class="sec">Ver ausencias</button>
       </div>
       <p class="grande" id="horasTotal"></p>
       <p class="meta" id="horasDetalle"></p>
-      <h2 class="sub" id="subPersonas">Por persona</h2>
-      <ul id="listaHoras"></ul>
+            <div class="tabla" id="tablaHoras">
+        <table>
+          <thead><tr><th>Persona</th><th class="num">Vacaciones pendientes</th><th class="num">Horas trabajadas</th></tr></thead>
+          <tbody id="cuerpoHoras"></tbody>
+        </table>
+      </div>
     </section>
     <p id="inicio" class="aviso">Elige el Excel de vacaciones en el menú lateral.</p>
 
@@ -181,6 +198,8 @@
     colUbicacion: 1,
     colPersona: 2,
     colHoras: 3,
+    colPendientes: 8,        // columna I: vacaciones pendientes
+    horasVueling: 1760,      // horas anuales de referencia
     filasVaciasParaParar: 5,
   };
 
@@ -359,27 +378,33 @@
     );
   }
 
-  /** Suma de «Horas trabajadas» (col. D) de las personas con algo en la col. A,
-   *  con el desglose por persona (en el orden del Excel).
-   *  Independiente de la fecha y de los filtros. Las filas resumen
+  const esNum = (v) => typeof v === "number" && isFinite(v);
+
+  /** Desglose por persona de las que tienen algo en la col. A: horas
+   *  trabajadas (col. D) y vacaciones pendientes (col. I), en el orden del
+   *  Excel. Independiente de la fecha y de los filtros. Las filas resumen
    *  («BCN - limpio») no cuentan como personas. */
-  function horasTotales(datos) {
+  function horasPorPersona(datos) {
     const conA = leerPersonas(datos).filter((p) => p.departamento !== null);
-    let total = 0, sinHoras = 0;
-    const detalle = [];
-    for (const p of conA) {
-      const h = p.fila[CFG.colHoras];
-      const ok = typeof h === "number" && isFinite(h);
-      if (ok) total += h; else sinHoras++;
-      detalle.push({
+    const detalle = conA.map((p) => {
+      const h = p.fila[CFG.colHoras], pd = p.fila[CFG.colPendientes];
+      return {
         persona: p.persona, departamento: p.departamento, ubicacion: p.ubicacion,
-        horas: ok ? h : null,
-      });
-    }
-    return { total: Math.round(total * 100) / 100, personas: conA.length, sinHoras, detalle };
+        horas: esNum(h) ? h : null,
+        pendientes: esNum(pd) ? pd : null,
+        bajoHoras: esNum(h) && h < CFG.horasVueling,
+      };
+    });
+    return {
+      horasVueling: CFG.horasVueling,
+      personas: detalle.length,
+      sinHoras: detalle.filter((d) => d.horas === null).length,
+      bajoHoras: detalle.filter((d) => d.bajoHoras).length,
+      detalle,
+    };
   }
 
-  const api = { MESES, CFG, SIN_DATO, normalizar, elegirHoja, calcular, filtrar, horasTotales, letraColumna };
+  const api = { MESES, CFG, SIN_DATO, normalizar, elegirHoja, calcular, filtrar, horasPorPersona, letraColumna };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.Vacaciones = api;
 })(typeof self !== "undefined" ? self : this);
@@ -500,22 +525,32 @@
 
   function calcularHoras() {
     if (!datos) return;
-    const r = Vacaciones.horasTotales(datos);
+    const r = Vacaciones.horasPorPersona(datos);
     const fmt = (n) => n.toLocaleString("es-ES", { maximumFractionDigits: 2 });
-    $("horasTotal").replaceChildren(document.createTextNode(fmt(r.total) + " "),
+    $("horasTotal").replaceChildren(document.createTextNode(fmt(r.horasVueling) + " "),
       Object.assign(document.createElement("span"), { textContent: "horas" }));
-    let det = r.personas === 0
-      ? "Ninguna persona tiene algo en la columna A."
-      : "Suma de " + r.personas + (r.personas === 1 ? " persona" : " personas") + " con algo en la columna A.";
-    if (r.sinHoras > 0) det += " " + r.sinHoras + (r.sinHoras === 1 ? " no tiene" : " no tienen") + " horas indicadas.";
-    $("horasDetalle").textContent = det;
-    const ul = $("listaHoras");
-    ul.replaceChildren();
-    $("subPersonas").hidden = ul.hidden = r.personas === 0;
+
+    const det = $("horasDetalle");
+    det.replaceChildren();
+    if (r.personas === 0) {
+      det.textContent = "Ninguna persona tiene algo en la columna A.";
+    } else {
+      det.append(document.createTextNode(
+        r.personas + (r.personas === 1 ? " persona" : " personas") + " con algo en la columna A. "));
+      const rojo = document.createElement("span");
+      rojo.className = "rojo";
+      rojo.textContent = r.bajoHoras + " por debajo de " + fmt(r.horasVueling) + " h (en rojo)";
+      det.append(rojo, document.createTextNode(
+        "." + (r.sinHoras > 0 ? " " + r.sinHoras + (r.sinHoras === 1 ? " sin horas indicadas." : " sin horas indicadas.") : "")));
+    }
+
+    const cuerpo = $("cuerpoHoras");
+    cuerpo.replaceChildren();
+    $("tablaHoras").hidden = r.personas === 0;
     for (const p of r.detalle) {
-      const li = document.createElement("li");
-      const nombre = document.createElement("span");
-      nombre.textContent = p.persona;
+      const tr = document.createElement("tr");
+      const tdN = document.createElement("td");
+      tdN.textContent = p.persona;
       const tags = document.createElement("span");
       tags.className = "tags";
       for (const txt of [p.departamento, p.ubicacion]) {
@@ -525,14 +560,19 @@
         tg.textContent = txt;
         tags.appendChild(tg);
       }
-      const h = document.createElement("span");
-      h.className = "horas" + (p.horas === null ? " nada" : "");
-      h.textContent = p.horas === null ? "sin horas" : fmt(p.horas) + " h";
-      const der = document.createElement("span");
-      der.className = "tags";
-      der.append(tags, h);
-      li.append(nombre, der);
-      ul.appendChild(li);
+      tdN.appendChild(tags);
+
+      const tdP = document.createElement("td");
+      tdP.className = "num pend" + (p.pendientes === null ? " nada" : "");
+      tdP.textContent = p.pendientes === null ? "—" : fmt(p.pendientes);
+
+      const tdH = document.createElement("td");
+      tdH.className = "num horas" + (p.horas === null ? " nada" : p.bajoHoras ? " bajo" : "");
+      tdH.textContent = p.horas === null ? "sin horas" : fmt(p.horas) + " h";
+      if (p.bajoHoras) tdH.title = "Por debajo de " + fmt(r.horasVueling) + " h";
+
+      tr.append(tdN, tdP, tdH);
+      cuerpo.appendChild(tr);
     }
     $("error").hidden = true;
     $("contenido").hidden = true;
