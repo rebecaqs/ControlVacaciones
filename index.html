@@ -112,9 +112,9 @@
     <button type="button" id="btnManana">Mañana</button>
 
     <h3>Mostrar</h3>
-    <label class="check"><input type="checkbox" id="verAusentes" checked> Están ausentes</label>
-    <label class="check"><input type="checkbox" id="verEmpiezan" checked> Empiezan una ausencia</label>
-    <label class="check"><input type="checkbox" id="verSinNada" checked> Sin nada en la casilla (dejan la empresa)</label>
+    <label class="check"><input type="checkbox" id="verAusentes" checked> Están de vacaciones/permiso</label>
+    <label class="check"><input type="checkbox" id="verEmpiezan" checked> Empiezan vacaciones/permiso</label>
+    <label class="check"><input type="checkbox" id="verSinNada" checked> Último día en Vueling</label>
 
     <h3>Tipo</h3>
     <label class="check"><input type="checkbox" id="tVac" checked> Vacaciones</label>
@@ -150,7 +150,7 @@
       <p class="aviso" id="sinSeccion" hidden>Marca al menos una opción en «Mostrar».</p>
 
       <section class="card" id="cardAusentes">
-        <h2>Están ausentes <span class="n" id="nAusentes"></span></h2>
+        <h2>Están de vacaciones/permiso <span class="n" id="nAusentes"></span></h2>
         <ul id="listaAusentes"></ul>
         <p class="vacio" id="vacioAusentes" hidden>Nadie con estos filtros.</p>
       </section>
@@ -162,8 +162,8 @@
       </section>
 
       <section class="card" id="cardSinNada">
-        <h2>Sin nada en la casilla <span class="n" id="nSinNada"></span></h2>
-        <p class="sub2" id="subSinNada">Tenían algo en la casilla el día laborable anterior y ese día no: suele indicar que dejan la empresa.</p>
+        <h2>Último día en Vueling<span class="n" id="nSinNada"></span></h2>
+        <p class="sub2" id="subSinNada">Hoy es el último día en Vueling</p>
         <ul id="listaSinNada"></ul>
         <p class="vacio" id="vacioSinNada" hidden>Nadie deja la empresa ese día (con estos filtros).</p>
         <p class="vacio" id="finSemana" hidden>Es fin de semana: la casilla está vacía para todos, no se comprueba.</p>
