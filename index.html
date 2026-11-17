@@ -55,6 +55,8 @@
   td.nada { font-weight: 400; color: var(--muted); }
   td .tags { display: inline-flex; margin-left: 8px; vertical-align: middle; }
   .rojo { color: #c62828; font-weight: 600; }
+  .sub2 { color: var(--muted); font-size: .85rem; margin: 0 0 6px; }
+  .tag.estado { color: var(--azul-osc); background: #fff; border-color: var(--azul-borde); font-weight: 600; }
   h2.sub { margin: 16px 0 4px; font-size: .95rem; }
   .grande span { font-size: 1rem; font-weight: 500; color: var(--muted); }
 
@@ -112,6 +114,7 @@
     <h3>Mostrar</h3>
     <label class="check"><input type="checkbox" id="verAusentes" checked> Están ausentes</label>
     <label class="check"><input type="checkbox" id="verEmpiezan" checked> Empiezan una ausencia</label>
+    <label class="check"><input type="checkbox" id="verSinNada" checked> Sin nada en la casilla (dejan la empresa)</label>
 
     <h3>Tipo</h3>
     <label class="check"><input type="checkbox" id="tVac" checked> Vacaciones</label>
@@ -156,6 +159,14 @@
         <h2>Empiezan una ausencia <span class="n" id="nEmpiezan"></span></h2>
         <ul id="listaEmpiezan"></ul>
         <p class="vacio" id="vacioEmpiezan" hidden>Nadie con estos filtros.</p>
+      </section>
+
+      <section class="card" id="cardSinNada">
+        <h2>Sin nada en la casilla <span class="n" id="nSinNada"></span></h2>
+        <p class="sub2" id="subSinNada">Tenían algo en la casilla el día laborable anterior y ese día no: suele indicar que dejan la empresa.</p>
+        <ul id="listaSinNada"></ul>
+        <p class="vacio" id="vacioSinNada" hidden>Nadie deja la empresa ese día (con estos filtros).</p>
+        <p class="vacio" id="finSemana" hidden>Es fin de semana: la casilla está vacía para todos, no se comprueba.</p>
       </section>
 
       <p class="meta" id="meta"></p>
@@ -369,6 +380,67 @@
     };
   }
 
+  /** Fecha de cada columna del calendario (Map columna -> Date). El año
+   *  empieza en `anioHoja` y sube cuando el mes «retrocede» (el bloque extra
+   *  de ENERO del final es del año siguiente). */
+  function fechasColumnas(datos, anioHoja) {
+    const mapa = new Map();
+    const filaDias = datos.rows[CFG.filaNumDia] || [];
+    let anio = anioHoja, mesPrevio = -1;
+    for (const b of bloquesDeMes(datos.rows, datos.merges)) {
+      const mes = MESES.indexOf(b.mes);
+      if (mes < 0) continue;
+      if (mes < mesPrevio) anio++;
+      mesPrevio = mes;
+      for (let c = b.ini; c <= b.fin; c++) {
+        const dia = Number(filaDias[c]);
+        if (dia >= 1 && dia <= 31) mapa.set(c, new Date(anio, mes, dia));
+      }
+    }
+    return mapa;
+  }
+
+  /** Personas que tenían algo en la casilla del día laborable anterior (se
+   *  saltan sábados y domingos) y NO tienen nada en `fecha`: suele indicar
+   *  que dejan la empresa. En fin de semana no se comprueba.
+   *    se-fue -> no tiene datos después (`fecha` = su último día)
+   *    hueco  -> vuelve a tener datos más adelante (`fecha` = ese día) */
+  function sinNada(datos, fecha, anioHoja) {
+    if (fecha.getDay() === 0 || fecha.getDay() === 6) return { finDeSemana: true, personas: [] };
+    const columna = localizarColumnaDia(datos, fecha, anioHoja);
+    const fechas = fechasColumnas(datos, anioHoja);
+    const cols = Array.from(fechas.keys()).sort((a, b) => a - b);
+
+    let colAnterior = null;                       // día laborable anterior
+    for (let i = cols.length - 1; i >= 0; i--) {
+      const f = fechas.get(cols[i]);
+      if (cols[i] < columna && f.getDay() !== 0 && f.getDay() !== 6) { colAnterior = cols[i]; break; }
+    }
+    if (colAnterior === null) return { finDeSemana: false, personas: [] };
+
+    const personas = [];
+    for (const p of leerPersonas(datos)) {
+      if (vacio(p.fila[colAnterior]) || !vacio(p.fila[columna])) continue;
+      let next = null;
+      for (const c of cols) {
+        if (c > columna && !vacio(p.fila[c])) { next = fechas.get(c); break; }
+      }
+      personas.push({
+        persona: p.persona, departamento: p.departamento, ubicacion: p.ubicacion,
+        estado: next ? "hueco" : "se-fue",
+        fecha: next || fechas.get(colAnterior),
+      });
+    }
+    return { finDeSemana: false, personas };
+  }
+
+  /** Filtro por ubicación / departamento (para listas sin tipo de ausencia). */
+  function filtrarLugar(personas, f) {
+    return personas.filter((p) =>
+      !f.ubicOcultas.has(p.ubicacion || SIN_DATO) &&
+      !f.deptoOcultos.has(p.departamento || SIN_DATO));
+  }
+
   /** f = { tipos:Set, ubicOcultas:Set, deptoOcultos:Set } */
   function filtrar(personas, f) {
     return personas.filter((p) =>
@@ -392,19 +464,19 @@
         persona: p.persona, departamento: p.departamento, ubicacion: p.ubicacion,
         horas: esNum(h) ? h : null,
         pendientes: esNum(pd) ? pd : null,
-        altoHoras: esNum(h) && h > CFG.horasVueling,
+        bajoHoras: esNum(h) && h < CFG.horasVueling,
       };
     });
     return {
       horasVueling: CFG.horasVueling,
       personas: detalle.length,
       sinHoras: detalle.filter((d) => d.horas === null).length,
-      altoHoras: detalle.filter((d) => d.altoHoras).length,
+      bajoHoras: detalle.filter((d) => d.bajoHoras).length,
       detalle,
     };
   }
 
-  const api = { MESES, CFG, SIN_DATO, normalizar, elegirHoja, calcular, filtrar, horasPorPersona, letraColumna };
+  const api = { MESES, CFG, SIN_DATO, normalizar, elegirHoja, calcular, filtrar, filtrarLugar, sinNada, horasPorPersona, letraColumna };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.Vacaciones = api;
 })(typeof self !== "undefined" ? self : this);
@@ -492,6 +564,40 @@
     }
   }
 
+  const fechaCorta = (d) => d.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
+  function textoEstado(p) {
+    switch (p.estado) {
+      case "se-fue": return "Último día: " + fechaCorta(p.fecha);
+      default: return "Vuelve el " + fechaCorta(p.fecha);
+    }
+  }
+  function pintarSinNada(items, finDeSemana) {
+    const ul = $("listaSinNada");
+    ul.replaceChildren();
+    $("finSemana").hidden = !finDeSemana;
+    $("vacioSinNada").hidden = finDeSemana || items.length > 0;
+    $("subSinNada").hidden = finDeSemana;
+    $("nSinNada").textContent = finDeSemana ? "" : "(" + items.length + ")";
+    for (const p of items) {
+      const li = document.createElement("li");
+      const nombre = document.createElement("span");
+      nombre.textContent = p.persona;
+      const tags = document.createElement("span");
+      tags.className = "tags";
+      const add = (txt, cls) => {
+        const tg = document.createElement("span");
+        tg.className = "tag " + (cls || "");
+        tg.textContent = txt;
+        tags.appendChild(tg);
+      };
+      add(textoEstado(p), "estado");
+      if (p.ubicacion) add(p.ubicacion);
+      if (p.departamento) add(p.departamento);
+      li.append(nombre, tags);
+      ul.appendChild(li);
+    }
+  }
+
   function render() {
     if (!datos) return;
     $("error").hidden = true;
@@ -502,6 +608,11 @@
     let res;
     try { res = Vacaciones.calcular(datos, fecha, anioHoja); }
     catch (e) { return mostrarError(e.message); }
+
+    let sn;
+    try { sn = Vacaciones.sinNada(datos, fecha, anioHoja); }
+    catch (e) { return mostrarError(e.message); }
+    const sinNada = Vacaciones.filtrarLugar(sn.personas, { ubicOcultas: ocultasU, deptoOcultos: ocultasD });
 
     const tipos = new Set();
     for (const [id, tipo] of Object.entries(CASILLAS_TIPO)) if ($(id).checked) tipos.add(tipo);
@@ -514,9 +625,11 @@
     });
     $("cardAusentes").hidden = !$("verAusentes").checked;
     $("cardEmpiezan").hidden = !$("verEmpiezan").checked;
-    $("sinSeccion").hidden = $("verAusentes").checked || $("verEmpiezan").checked;
+    $("cardSinNada").hidden = !$("verSinNada").checked;
+    $("sinSeccion").hidden = $("verAusentes").checked || $("verEmpiezan").checked || $("verSinNada").checked;
     pintarLista($("listaAusentes"), $("vacioAusentes"), $("nAusentes"), lista);
     pintarLista($("listaEmpiezan"), $("vacioEmpiezan"), $("nEmpiezan"), lista.filter((p) => p.empieza));
+    pintarSinNada(sinNada, sn.finDeSemana);
     $("meta").textContent = "Hoja «" + hojaNombre + "», columna " + res.columna + ", " + res.totalPersonas + " personas leídas.";
     $("inicio").hidden = true;
     $("cardHoras").hidden = true;
@@ -539,7 +652,7 @@
         r.personas + (r.personas === 1 ? " persona" : " personas") + " con algo en la columna A. "));
       const rojo = document.createElement("span");
       rojo.className = "rojo";
-      rojo.textContent = r.altoHoras + " por encima de " + fmt(r.horasVueling) + " h (en rojo)";
+      rojo.textContent = r.bajoHoras + " por debajo de " + fmt(r.horasVueling) + " h (en rojo)";
       det.append(rojo, document.createTextNode(
         "." + (r.sinHoras > 0 ? " " + r.sinHoras + (r.sinHoras === 1 ? " sin horas indicadas." : " sin horas indicadas.") : "")));
     }
@@ -567,9 +680,9 @@
       tdP.textContent = p.pendientes === null ? "—" : fmt(p.pendientes);
 
       const tdH = document.createElement("td");
-      tdH.className = "num horas" + (p.horas === null ? " nada" : p.altoHoras ? " bajo" : "");
+      tdH.className = "num horas" + (p.horas === null ? " nada" : p.bajoHoras ? " bajo" : "");
       tdH.textContent = p.horas === null ? "sin horas" : fmt(p.horas) + " h";
-      if (p.altoHoras) tdH.title = "Por debajo de " + fmt(r.horasVueling) + " h";
+      if (p.bajoHoras) tdH.title = "Por debajo de " + fmt(r.horasVueling) + " h";
 
       tr.append(tdN, tdP, tdH);
       cuerpo.appendChild(tr);
@@ -608,7 +721,7 @@
   $("btnManana").addEventListener("click", ponerManana);
   $("btnHoras").addEventListener("click", calcularHoras);
   $("btnVerAusencias").addEventListener("click", render);
-  ["verAusentes", "verEmpiezan", ...Object.keys(CASILLAS_TIPO)].forEach((id) => $(id).addEventListener("change", render));
+  ["verAusentes", "verEmpiezan", "verSinNada", ...Object.keys(CASILLAS_TIPO)].forEach((id) => $(id).addEventListener("change", render));
 
   const drop = $("drop");
   ["dragenter", "dragover"].forEach((ev) =>
