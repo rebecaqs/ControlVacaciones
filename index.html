@@ -464,7 +464,7 @@
         persona: p.persona, departamento: p.departamento, ubicacion: p.ubicacion,
         horas: esNum(h) ? h : null,
         pendientes: esNum(pd) ? pd : null,
-        bajoHoras: esNum(h) && h < CFG.horasVueling,
+        bajoHoras: esNum(h) && h > CFG.horasVueling,
       };
     });
     return {
@@ -682,7 +682,7 @@
       const tdH = document.createElement("td");
       tdH.className = "num horas" + (p.horas === null ? " nada" : p.bajoHoras ? " bajo" : "");
       tdH.textContent = p.horas === null ? "sin horas" : fmt(p.horas) + " h";
-      if (p.bajoHoras) tdH.title = "Por debajo de " + fmt(r.horasVueling) + " h";
+      if (p.bajoHoras) tdH.title = "Por encima de " + fmt(r.horasVueling) + " h";
 
       tr.append(tdN, tdP, tdH);
       cuerpo.appendChild(tr);
